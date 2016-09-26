@@ -87,3 +87,9 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+WiFiConfig.h
+*/WiFiConfig.h
+
+.DS_Store
+*/.DS_Store
