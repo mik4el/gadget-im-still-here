@@ -45,33 +45,8 @@ void setup() {
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
 
-  http.begin("https://m4bd.se/backend/api/v1/gadgets/", FINGERPRINT);
-  
-  int httpCode = http.GET();
-
-  // httpCode will be negative on error
-  if(httpCode > 0) {
-      // HTTP header has been send and Server response header has been handled
-      Serial.printf("[HTTP] GET... code: %d\n", httpCode);
-
-      // file found at server
-      if(httpCode == HTTP_CODE_OK) {
-          String payload = http.getString();
-          Serial.println(payload);
-      }
-  } else {
-      Serial.printf("[HTTP] GET... failed, error: %s\n", http.errorToString(httpCode).c_str());
-  }
-
-  http.end();
   getJWToken();
-  if (authorized) {
-    Serial.println("Authorized, sending data.");
-    postImStillHere();
-  } else {
-    Serial.println("Not authorized!");  
-  }
-
+  
 }
 
 void getJWToken() {
@@ -146,10 +121,20 @@ void postImStillHere() {
       }
   } else {
       Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+      authorized = false;
   }
 
   http.end();
 }
 
 void loop() {
+  if (authorized) {
+    Serial.println("Authorized, sending data.");
+    postImStillHere();
+    delay(1000*60);
+  } else {
+    Serial.println("Not authorized!");  
+    getJWToken();
+    delay(1000);
+  }
 }
