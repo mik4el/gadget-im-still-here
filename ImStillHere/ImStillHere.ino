@@ -15,20 +15,56 @@
 #include <ESP8266HTTPClient.h>
 #include "WiFiConfig.h"
 #include <aJSON.h>
+#include <EEPROM.h>
 
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASSWORD;
-
-const char* host = "m4bd.se";
+const char* host = HOST;
 const int httpsPort = 443;
-
-// Use web browser to view and copy
-// SHA1 fingerprint of the certificate
-#define FINGERPRINT "81 B2 CE B2 BB 60 8E AC FA BC 8D A3 66 4F 68 1A 23 BB 54 EB"
-
+long messageId = 0;
 String jwt;
 bool authorized = false;
+bool posted_message = false;
 HTTPClient http;
+
+
+//This function will write a 4 byte (32bit) long to the eeprom at
+//the specified address to address + 3.
+void EEPROMWritelong(int address, long value) {
+  //Decomposition from a long to 4 bytes by using bitshift.
+  //One = Most significant -> Four = Least significant byte
+  byte four = (value & 0xFF);
+  byte three = ((value >> 8) & 0xFF);
+  byte two = ((value >> 16) & 0xFF);
+  byte one = ((value >> 24) & 0xFF);
+  
+  //Write the 4 bytes into the eeprom memory.
+  EEPROM.write(address, four);
+  EEPROM.write(address + 1, three);
+  EEPROM.write(address + 2, two);
+  EEPROM.write(address + 3, one);
+  EEPROM.commit();
+}
+
+//This function will return a 4 byte (32bit) long from the eeprom
+//at the specified address to address + 3.
+long EEPROMReadlong(long address) {
+  //Read the 4 bytes from the eeprom memory.
+  long four = EEPROM.read(address);
+  long three = EEPROM.read(address + 1);
+  long two = EEPROM.read(address + 2);
+  long one = EEPROM.read(address + 3);
+  
+  //Return the recomposed long by using bitshift.
+  return ((four << 0) & 0xFF) + ((three << 8) & 0xFFFF) + ((two << 16) & 0xFFFFFF) +((one << 24) & 0xFFFFFFFF);
+}
+
+void updateMessageId() {
+    EEPROM.begin(4);
+    messageId = EEPROMReadlong(0) + 1;
+    EEPROMWritelong(0, messageId);
+    EEPROM.end();
+ }
 
 void setup() {
   Serial.begin(115200);
@@ -61,7 +97,7 @@ void getJWToken() {
 
   Serial.println("making jwt auth post");
 
-  http.begin("https://m4bd.se/backend/api-token-auth/", FINGERPRINT);
+  http.begin(HOST_JWT_URL, HOST_FINGERPRINT);
   http.addHeader("Content-Type", "application/json");
   int httpCode = http.POST((uint8_t *)payload,strlen(payload));
 
@@ -93,18 +129,20 @@ void getJWToken() {
 void postImStillHere() {
 
   Serial.println("Preparing I'm still here post");
-
+  
+  updateMessageId();
+  
   aJsonObject *root, *data_json;
   root=aJson.createObject();
   aJson.addItemToObject(root, "data", data_json = aJson.createObject());
   aJson.addStringToObject(data_json, "ssid", WIFI_SSID);
-  //add message id to data_json
+  aJson.addNumberToObject(data_json, "message_id", (int)messageId);
   char *payload=aJson.print(root);
   Serial.println(payload);
 
   Serial.println("Making I'm still here post");
 
-  http.begin("https://m4bd.se/backend/api/v1/gadgets/im-still-here/data/", FINGERPRINT);
+  http.begin(HOST_POST_URL, HOST_FINGERPRINT);
   http.addHeader("Content-Type", "application/json");
   http.addHeader("Authorization", "Bearer " + jwt);
   int httpCode = http.POST((uint8_t *)payload,strlen(payload));
@@ -113,12 +151,7 @@ void postImStillHere() {
   if(httpCode > 0) {
       // HTTP header has been send and Server response header has been handled
       Serial.printf("[HTTP] POST... code: %d\n", httpCode);
-
-      //read and save json token
-      if(httpCode == HTTP_CODE_OK) {
-          String payload = http.getString();
-          Serial.println(payload);
-      }
+      posted_message = true;
   } else {
       Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
       authorized = false;
@@ -129,9 +162,12 @@ void postImStillHere() {
 
 void loop() {
   if (authorized) {
-    Serial.println("Authorized, sending data.");
-    postImStillHere();
-    delay(1000*60);
+    if (posted_message) {
+      ESP.deepSleep(1000);  // Dies since no interrupt pin on esp-01    
+    } else {
+      Serial.println("Authorized, sending data.");
+      postImStillHere();
+    }
   } else {
     Serial.println("Not authorized!");  
     getJWToken();
