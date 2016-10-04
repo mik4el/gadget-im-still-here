@@ -1,5 +1,9 @@
 # I'm Still Here
-A generic Esp8266 telling the world through a web service ping that it is still alive and sleeps between pings. This is also the first Esp8266 project for me so it includes a get started tutorial so I can remember the next time.
+A generic Esp8266 (esp-01) telling the world through a web service ping that it is still alive and sleeps between pings. This is also the first Esp8266 project for me so it includes a get started tutorial so I can remember the next time.
+
+## Features
+1. JWT-authentication
+1. Http-requests using SSL/TLS (https)
 
 ## Get started with WiFiWebServerBlink
 1. Hook up according to `blink_*.jpg`. 
@@ -13,3 +17,11 @@ A generic Esp8266 telling the world through a web service ping that it is still 
 1. Now I can upload a sketch from Arduino IDE.
 1. Open the serial monitor to see connection status and IP, go to e.g. `http://192.168.1.6/gpio/1` to turn on and `http://192.168.1.6/gpio/0` to turn off.
 1. An _internet of things_ thing!
+
+## Get started with ImStillHere
+1. Hook up according to `imstillhere_*.jpg`.
+1. Same as above but:
+1.1 Make a copy of `ImStillHere/WiFiConfig_template.h` to `ImStillHere/WiFiConfig_template.h` with your credentials.
+To get fingerprints for your https host, go to e.g. `https://www.grc.com/fingerprints.htm` (separate the hex values with a space ' ' not ':')
+1.1 Open the serial monitor to see connection status
+1.1 Look in your web service that jwt-authed https-post requests are being made.
